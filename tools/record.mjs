@@ -23,6 +23,20 @@ async function record(seconds, label) {
   const s = await page.evaluate(() => __sky.state());
   console.log(`rec ${label} ${seconds}s -> frame ${frame} | ${s.state} v=${s.speedKmh.toFixed(0)} y=${s.y.toFixed(0)} step=${s.step} crashed=${s.crashed}`);
 }
+// record until the aircraft has landed and (nearly) stopped
+async function recordUntilStopped(maxSec, label) {
+  const n = Math.round(maxSec * fps);
+  let stopped = 0;
+  for (let i = 0; i < n && stopped < fps * 1.5; i++) {
+    await page.evaluate((d) => __sky.advance(1, d), dt);
+    await page.screenshot({ path: `${out}/f${String(frame).padStart(5, '0')}.jpg`, type: 'jpeg', quality: 88, timeout: 180000 });
+    frame++;
+    const s = await page.evaluate(() => __sky.state());
+    if (s.onGround && s.speedKmh < 8) stopped++;
+  }
+  const s = await page.evaluate(() => __sky.state());
+  console.log(`rec ${label} -> frame ${frame} | ${s.state} v=${s.speedKmh.toFixed(0)} y=${s.y.toFixed(0)} ground=${s.onGround} step=${s.step} crashed=${s.crashed}`);
+}
 // simulate (no rendering) until a condition holds
 async function until(cond, maxSec = 600, chunk = 0.25, arg) {
   for (let t = 0; t < maxSec; t += chunk) {
@@ -93,6 +107,28 @@ if (plan === 'gif') {
   await cruiseSegment(1.2);
   await landingSegment(6.2, 10);
   await ruinsSegment(3.0, 600);
+} else if (plan === 'landings') {
+  // full approach-to-stop clips for the long video
+  await takeoffSegment(false);
+  frame = 0;
+  for (const f of fs.readdirSync(out)) fs.unlinkSync(`${out}/${f}`);
+  await until(() => __sky.ap.mode === 'idle', 60);
+  await ev(() => __sky.ap.fly({ x: 1500, z: -1600, alt: 230, speed: 52 }));
+  await until(near(1500, -1600, 450), 200);
+  await ev(() => __sky.ap.land('lighthouse'));
+  await until(() => { const s = __sky.state(); return s.y - 22 < 30 && Math.hypot(s.x - 3000, s.z + 3200) < 900; }, 300, 0.05);
+  await recordUntilStopped(30, 'lighthouse-landing');
+  const mark = frame;
+  await ev(() => { __sky.start('m3'); __sky.ap.takeoff(); });
+  await until(() => __sky.ap.mode === 'idle', 60);
+  await ev(() => __sky.ap.fly({ x: 4000, z: -13500, alt: 450, speed: 55 }));
+  await until(() => __sky.game.stepIndex >= 1, 400);
+  await ev(() => __sky.ap.fly({ x: 7500, z: -15500, alt: 480, speed: 52 }));
+  await until(() => __sky.game.stepIndex >= 2, 400);
+  await ev(() => __sky.ap.land('secret'));
+  await until(() => { const s = __sky.state(); return s.y - 86 < 45 && Math.hypot(s.x - 7500, s.z + 15500) < 1200; }, 400, 0.05);
+  await recordUntilStopped(40, 'secret-landing');
+  console.log('secret starts at', mark);
 } else {
   await takeoffSegment(true);
   await cruiseSegment(5);
