@@ -40,12 +40,12 @@ await ev(() => { __sky.resetSave(); });
 async function takeoffSegment(full) {
   await ev(() => { __sky.start('m1'); __sky.simulate(0.4); });
   await ev(() => __sky.ap.takeoff());
-  if (full) await record(16, 'takeoff-full');
+  if (full) await record(12, 'takeoff-full');
   else {
     await record(1.2, 'runup');
     await until(() => __sky.state().speedKmh > 100);
   }
-  await record(full ? 7 : 4.2, 'liftoff');
+  await record(full ? 6 : 4.2, 'liftoff');
 }
 async function cruiseSegment(sec) {
   await until(() => __sky.ap.mode === 'idle', 60);
