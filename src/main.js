@@ -31,7 +31,7 @@ class Game {
     const progress = (p, t) => { $('load-fill').style.width = `${p * 100}%`; if (t) $('load-text').textContent = t; };
     progress(0.05, 'レンダラーを準備しています…');
     await tick();
-    this.quality = params.get('quality') || 'medium';
+    this.quality = params.get('quality') || (() => { try { return localStorage.getItem('skybound-quality'); } catch { return null; } })() || 'medium';
     const renderer = this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance', preserveDrawingBuffer: params.has('capture') });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, this.quality === 'high' ? 2 : this.quality === 'low' ? 0.75 : 1.25));
     renderer.setSize(innerWidth, innerHeight);
@@ -246,7 +246,10 @@ class Game {
     $('set-assist').addEventListener('change', (e) => { this.settings.assist = e.target.checked; this.applySettings(); });
     $('set-hints').addEventListener('change', (e) => { this.settings.hints = e.target.checked; this.applySettings(); });
     $('set-quality').value = this.quality;
-    $('set-quality').addEventListener('change', (e) => { const u = new URL(location.href); u.searchParams.set('quality', e.target.value); location.href = u.toString(); });
+    $('set-quality').addEventListener('change', (e) => {
+      try { localStorage.setItem('skybound-quality', e.target.value); } catch { /* storage unavailable */ }
+      const u = new URL(location.href); u.searchParams.delete('quality'); location.href = u.toString();
+    });
   }
 
   applySettings() {
