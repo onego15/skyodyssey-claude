@@ -322,7 +322,7 @@ export class FlightModel {
 
     if (this.onGround) this.stepGround(dt, input, env, speed, qdyn, CL, thrust);
     else this.stepAir(dt, input, env, speed, qdyn, CL, thrust);
-    this.stall = !this.onGround && this.aoa > P.aoaStall - 0.035 && speed > 5 ? 1 : 0;
+    this.stall = !this.onGround && this.airTime > 1.2 && this.aoa > P.aoaStall - 0.015 && speed > 5 ? 1 : 0;
     this.checkCollisions(env);
   }
 
@@ -359,7 +359,15 @@ export class FlightModel {
     CLreq = clamp(CLreq, -0.4, P.CL0 + P.CLa * P.aoaStall * 0.92);
     let aoaTrim = (CLreq - P.CL0) / P.CLa;
     if (!this.assist) aoaTrim = 0.02;
-    const cmdPitch = input.pitch * P.pitchRate * eff - (this.aoa - aoaTrim) * P.kStab * Math.min(eff, 1);
+    let pin = input.pitch;
+    let ff = 0;
+    if (this.assist) {
+      // soft attitude limits and turn feed-forward (nose follows the turn without sinking)
+      if (pin > 0 && att.pitch > 0.75) pin *= clamp((1.05 - att.pitch) / 0.3, 0, 1);
+      if (pin < 0 && att.pitch < -0.75) pin *= clamp((1.05 + att.pitch) / 0.3, 0, 1);
+      if (Math.abs(att.bank) < 1.3) ff = clamp(0.5 * G * Math.sin(att.bank) * Math.tan(att.bank) / Math.max(speed, 20), 0, 0.4);
+    }
+    const cmdPitch = pin * P.pitchRate * eff + ff - (this.aoa - aoaTrim) * P.kStab * Math.min(eff, 1);
     let cmdRoll = input.roll * P.rollRate * eff;
     if (this.assist && Math.abs(att.bank) < 1.5) {
       // bank-angle command: the keys set a bank angle (max 60 deg); releasing them levels the wings

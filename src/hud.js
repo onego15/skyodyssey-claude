@@ -235,7 +235,8 @@ export class HUD {
       x = cx + dx * Math.min(s, 1e6); y = cy + dy * Math.min(s, 1e6);
     }
     m.classList.toggle('edge', off);
-    m.style.left = `${x}px`; m.style.top = `${y}px`;
+    const zoom = parseFloat(getComputedStyle(this.el).zoom) || 1;
+    m.style.left = `${x / zoom}px`; m.style.top = `${y / zoom}px`;
     m.querySelector('.mk-label').textContent = t.label || '';
     const d = g.dist(t.x, t.z);
     m.querySelector('.mk-dist').textContent = d > 1000 ? `${(d / 1000).toFixed(1)} km` : `${Math.round(d)} m`;
