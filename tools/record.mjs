@@ -24,9 +24,9 @@ async function record(seconds, label) {
   console.log(`rec ${label} ${seconds}s -> frame ${frame} | ${s.state} v=${s.speedKmh.toFixed(0)} y=${s.y.toFixed(0)} step=${s.step} crashed=${s.crashed}`);
 }
 // simulate (no rendering) until a condition holds
-async function until(cond, maxSec = 600, chunk = 0.25) {
+async function until(cond, maxSec = 600, chunk = 0.25, arg) {
   for (let t = 0; t < maxSec; t += chunk) {
-    if (await page.evaluate(cond)) return true;
+    if (await page.evaluate(cond, arg)) return true;
     await page.evaluate((c) => __sky.simulate(c), chunk);
   }
   console.log('until: timed out', cond.toString());
@@ -42,10 +42,10 @@ async function takeoffSegment(full) {
   await ev(() => __sky.ap.takeoff());
   if (full) await record(12, 'takeoff-full');
   else {
-    await record(1.2, 'runup');
+    await record(0.8, 'runup');
     await until(() => __sky.state().speedKmh > 100);
   }
-  await record(full ? 6 : 4.2, 'liftoff');
+  await record(full ? 6 : 4.0, 'liftoff');
 }
 async function cruiseSegment(sec) {
   await until(() => __sky.ap.mode === 'idle', 60);
@@ -53,14 +53,14 @@ async function cruiseSegment(sec) {
   await until(() => __sky.state().y > 170, 60);
   await record(sec, 'cruise');
 }
-async function landingSegment(sec) {
+async function landingSegment(sec, startAgl) {
   await until(near(1500, -1600, 450), 200);
   await ev(() => __sky.ap.land('lighthouse'));
   // start recording on short final
-  await until(() => { const s = __sky.state(); return s.y - 22 < 34 && Math.hypot(s.x - 2670, s.z + 3010) < 900; }, 300, 0.1);
+  await until((a) => { const s = __sky.state(); return s.y - 22 < a && Math.hypot(s.x - 3000, s.z + 3200) < 900; }, 300, 0.05, startAgl);
   await record(sec, 'landing');
 }
-async function ruinsSegment(sec) {
+async function ruinsSegment(sec, startDist) {
   await ev(() => { __sky.start('m2'); __sky.ap.takeoff(); });
   await until(() => __sky.ap.mode === 'idle', 60);
   const legs = [[-1900, -6200, 250], [-2150, -8350, 300], [-2600, -10300, 480]];
@@ -69,7 +69,7 @@ async function ruinsSegment(sec) {
     await until(near(x, z, 400), 400);
   }
   await ev(() => __sky.ap.fly({ x: -3100, z: -12300, alt: 520, speed: 46 }));
-  await until(() => { const s = __sky.state(); return Math.hypot(s.x + 3150, s.z + 12500) < 820; }, 200, 0.1);
+  await until((r) => { const s = __sky.state(); return Math.hypot(s.x + 3150, s.z + 12500) < r; }, 200, 0.1, startDist);
   await record(sec, 'ruins');
 }
 async function canyonSegment(sec) {
@@ -90,15 +90,15 @@ async function phantomSegment(sec) {
 
 if (plan === 'gif') {
   await takeoffSegment(false);
-  await cruiseSegment(2.0);
-  await landingSegment(4.0);
-  await ruinsSegment(3.2);
+  await cruiseSegment(1.6);
+  await landingSegment(4.4, 12);
+  await ruinsSegment(3.6, 640);
 } else {
   await takeoffSegment(true);
   await cruiseSegment(5);
-  await landingSegment(12);
+  await landingSegment(12, 60);
   await canyonSegment(6);
-  await ruinsSegment(6);
+  await ruinsSegment(8, 820);
   await phantomSegment(12);
 }
 console.log('frames', frame);
