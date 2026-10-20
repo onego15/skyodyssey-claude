@@ -42,7 +42,7 @@ async function takeoffSegment(full) {
   await ev(() => __sky.ap.takeoff());
   if (full) await record(12, 'takeoff-full');
   else {
-    await record(0.8, 'runup');
+    await record(full ? 0 : 0.6, 'runup');
     await until(() => __sky.state().speedKmh > 100);
   }
   await record(full ? 6 : 4.0, 'liftoff');
@@ -90,9 +90,9 @@ async function phantomSegment(sec) {
 
 if (plan === 'gif') {
   await takeoffSegment(false);
-  await cruiseSegment(1.6);
-  await landingSegment(4.4, 12);
-  await ruinsSegment(3.6, 640);
+  await cruiseSegment(1.2);
+  await landingSegment(6.2, 10);
+  await ruinsSegment(3.0, 600);
 } else {
   await takeoffSegment(true);
   await cruiseSegment(5);
