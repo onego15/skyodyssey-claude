@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Skybound Horizons — 蒼穹の冒険</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Zen+Maru+Gothic:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="vignette"></div>
+  <div id="fade"></div>
+
+  <!-- In-flight HUD -->
+  <div id="hud" class="hidden">
+    <div id="mission-card" class="panel">
+      <div class="m-head"><span class="m-num"></span><span class="m-title"></span></div>
+      <div class="m-obj"></div>
+      <ul class="m-steps"></ul>
+    </div>
+    <canvas id="compass" width="560" height="54"></canvas>
+    <div id="stats" class="panel">
+      <div class="stat"><span class="ico crystal"></span><span id="st-crystal">0/8</span></div>
+      <div class="stat"><span class="ico star"></span><span id="st-disc">0/12</span></div>
+      <div id="resonance" class="hidden">
+        <div class="res-label">共鳴</div>
+        <div class="res-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+    <div id="gauges">
+      <div class="gauge panel" id="g-speed">
+        <svg viewBox="0 0 120 120"><circle class="g-bg" cx="60" cy="60" r="50" /><circle class="g-stall" cx="60" cy="60" r="50" /><circle class="g-val" cx="60" cy="60" r="50" /></svg>
+        <div class="g-num"><b id="v-speed">0</b><small>km/h</small></div>
+        <div class="g-label">速度</div>
+      </div>
+      <div class="panel readouts">
+        <div><label>高度</label><b id="v-alt">0</b><small>m</small></div>
+        <div><label>昇降</label><b id="v-vs">0</b><small>m/s</small></div>
+        <div><label>対地</label><b id="v-agl">0</b><small>m</small></div>
+      </div>
+      <canvas id="attitude" class="panel" width="132" height="132"></canvas>
+      <div class="panel throttle">
+        <label>出力</label>
+        <div class="t-bar"><div id="v-thr-fill"></div></div>
+        <b id="v-thr">0%</b>
+        <div id="v-brake" class="brake">BRAKE</div>
+      </div>
+    </div>
+    <div id="papi-hud" class="panel hidden"><label>PAPI</label><div class="papi"><i></i><i></i><i></i><i></i></div><small id="papi-txt"></small></div>
+    <div id="hint" class="panel"></div>
+    <div id="warn"></div>
+    <div id="marker" class="hidden"><div class="mk-dia"></div><div class="mk-label"></div><div class="mk-dist"></div></div>
+    <div id="toast"></div>
+    <div id="banner"><div class="b-kicker">DISCOVERY</div><div class="b-title"></div><div class="b-desc"></div></div>
+    <div id="report"></div>
+    <div id="keys-mini">W/S 機首 · A/D 旋回 · Q/E ラダー · R/F 出力 · Space ブレーキ · C カメラ · M 地図 · Esc メニュー</div>
+  </div>
+
+  <!-- Screens -->
+  <div id="screens">
+    <section id="s-loading" class="screen show">
+      <div class="logo"><div class="logo-en">SKYBOUND HORIZONS</div><div class="logo-ja">蒼穹の冒険</div></div>
+      <div class="loading-bar"><div id="load-fill"></div></div>
+      <div id="load-text">世界を生成しています…</div>
+    </section>
+
+    <section id="s-title" class="screen">
+      <div class="logo big"><div class="logo-en">SKYBOUND HORIZONS</div><div class="logo-ja">蒼穹の冒険</div></div>
+      <p class="tagline">祖父の飛行日誌を手に、まだ誰も知らない空へ。</p>
+      <div class="menu">
+        <button data-act="adventure" class="primary">冒険をはじめる</button>
+        <button data-act="free">フリーフライト</button>
+        <button data-act="help">操作方法</button>
+        <button data-act="settings">設定</button>
+      </div>
+      <div class="foot">クリックでサウンドが有効になります · キーボード推奨</div>
+    </section>
+
+    <section id="s-select" class="screen">
+      <h2>冒険を選ぶ</h2>
+      <div class="cards" id="mission-cards"></div>
+      <div class="menu row"><button data-act="back">もどる</button></div>
+    </section>
+
+    <section id="s-free" class="screen">
+      <h2>フリーフライト</h2>
+      <div class="free-grid">
+        <div><h3>出発地</h3><div class="opts" id="free-start"></div></div>
+        <div><h3>時間帯</h3><div class="opts" id="free-time"></div></div>
+      </div>
+      <div class="menu row"><button data-act="free-go" class="primary">出発する</button><button data-act="back">もどる</button></div>
+    </section>
+
+    <section id="s-intro" class="screen">
+      <div class="journal">
+        <div class="j-num"></div>
+        <h2 class="j-title"></h2>
+        <div class="j-text"></div>
+        <ol class="j-steps"></ol>
+        <div class="menu row"><button data-act="go" class="primary">出発する（Enter）</button><button data-act="back">もどる</button></div>
+      </div>
+    </section>
+
+    <section id="s-help" class="screen">
+      <h2>操作方法</h2>
+      <div class="help-grid">
+        <div class="hcol">
+          <h3>飛行</h3>
+          <table>
+            <tr><td><kbd>S</kbd> / <kbd>↓</kbd></td><td>機首を上げる（引く）</td></tr>
+            <tr><td><kbd>W</kbd> / <kbd>↑</kbd></td><td>機首を下げる（押す）</td></tr>
+            <tr><td><kbd>A</kbd> <kbd>D</kbd> / <kbd>←</kbd> <kbd>→</kbd></td><td>左右に傾ける（旋回）</td></tr>
+            <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>ラダー（機首を左右に向ける）</td></tr>
+            <tr><td><kbd>R</kbd> / <kbd>Shift</kbd></td><td>スロットル（エンジン出力）を上げる</td></tr>
+            <tr><td><kbd>F</kbd> / <kbd>Ctrl</kbd></td><td>スロットルを下げる</td></tr>
+            <tr><td><kbd>Space</kbd> / <kbd>B</kbd></td><td>ブレーキ（地上）</td></tr>
+          </table>
+        </div>
+        <div class="hcol">
+          <h3>その他</h3>
+          <table>
+            <tr><td><kbd>C</kbd></td><td>カメラ切替（追従/遠景/コックピット/フライバイ）</td></tr>
+            <tr><td>マウスドラッグ</td><td>周囲を見回す</td></tr>
+            <tr><td><kbd>M</kbd></td><td>地図と冒険日誌</td></tr>
+            <tr><td><kbd>Esc</kbd> / <kbd>P</kbd></td><td>一時停止メニュー</td></tr>
+            <tr><td><kbd>Enter</kbd></td><td>墜落時：直前から再開</td></tr>
+            <tr><td><kbd>H</kbd></td><td>ヒント表示の切替</td></tr>
+          </table>
+          <h3>離陸と着陸のコツ</h3>
+          <p>離陸：出力を最大にして滑走し、<b>100km/h</b> を超えたら <kbd>S</kbd> で機首を上げます。</p>
+          <p>着陸：滑走路の延長線上から出力を 20〜40% に下げ、<b>120〜150km/h</b> で降下。PAPI（赤白の灯火）が<b>白2・赤2</b>なら理想の角度です。接地直前に少し機首を上げ（フレア）、接地したら <kbd>Space</kbd> でブレーキ。</p>
+        </div>
+      </div>
+      <div class="menu row"><button data-act="back">もどる</button></div>
+    </section>
+
+    <section id="s-settings" class="screen">
+      <h2>設定</h2>
+      <div class="settings">
+        <label>BGM 音量 <input type="range" id="set-music" min="0" max="1" step="0.05" value="0.5"></label>
+        <label>効果音 音量 <input type="range" id="set-sfx" min="0" max="1" step="0.05" value="0.8"></label>
+        <label><input type="checkbox" id="set-invert"> 機首の上下操作を反転（W で機首上げ）</label>
+        <label><input type="checkbox" id="set-assist" checked> 操縦アシスト（自動水平・高度保持）</label>
+        <label><input type="checkbox" id="set-hints" checked> ヒントを表示</label>
+        <label>画質 <select id="set-quality"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></label>
+      </div>
+      <div class="menu row"><button data-act="back">もどる</button></div>
+    </section>
+
+    <section id="s-pause" class="screen dim">
+      <h2>一時停止</h2>
+      <div class="menu">
+        <button data-act="resume" class="primary">再開する</button>
+        <button data-act="checkpoint">少し前から再開</button>
+        <button data-act="restart">ミッションを最初から</button>
+        <button data-act="help">操作方法</button>
+        <button data-act="settings">設定</button>
+        <button data-act="title">タイトルへ戻る</button>
+      </div>
+    </section>
+
+    <section id="s-crash" class="screen dim">
+      <h2 class="crash-title">墜落</h2>
+      <p id="crash-reason"></p>
+      <div class="menu row">
+        <button data-act="checkpoint" class="primary">直前から再開（Enter）</button>
+        <button data-act="restart">ミッションを最初から</button>
+      </div>
+    </section>
+
+    <section id="s-result" class="screen dim">
+      <div class="journal result">
+        <div class="j-num">MISSION COMPLETE</div>
+        <h2 class="r-title"></h2>
+        <div class="r-grade"></div>
+        <div class="r-stats"></div>
+        <p class="r-outro"></p>
+        <div class="menu row" id="result-btns"></div>
+      </div>
+    </section>
+
+    <section id="s-map" class="screen dim">
+      <div class="map-wrap">
+        <canvas id="map" width="640" height="640"></canvas>
+        <div class="map-side">
+          <h2>冒険日誌</h2>
+          <ul id="journal-list"></ul>
+          <h3>スカイクリスタル</h3>
+          <ul id="crystal-list"></ul>
+          <div class="menu row"><button data-act="close-map">閉じる（M）</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="s-ending" class="screen">
+      <div class="credits">
+        <div class="logo big"><div class="logo-en">SKYBOUND HORIZONS</div><div class="logo-ja">蒼穹の冒険</div></div>
+        <p>祖父の日誌は、最後のページで終わっていた。<br>でも空は、まだどこまでも続いている。</p>
+        <p class="small">THANK YOU FOR FLYING</p>
+        <div class="menu row"><button data-act="free-from-end" class="primary">この島から自由に飛ぶ</button><button data-act="title">タイトルへ</button></div>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

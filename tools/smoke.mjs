@@ -1,0 +1,13 @@
+import { openGame } from './browser.mjs';
+const out = process.argv[2];
+const t0 = Date.now();
+const { browser, page, errors } = await openGame({ query: 'capture=1' });
+console.log('loaded in', Date.now() - t0, 'ms');
+console.log(await page.evaluate(() => document.getElementById('load-text').textContent));
+await page.evaluate(() => window.__sky && window.__sky.advance(3));
+await page.screenshot({ path: out + '/title.png' });
+await page.evaluate(() => { __sky.start('m1'); __sky.advance(20); });
+await page.screenshot({ path: out + '/m1-start.png' });
+console.log(JSON.stringify(await page.evaluate(() => __sky.state())));
+console.log(errors.slice(0, 20).join('\n'));
+await browser.close();
