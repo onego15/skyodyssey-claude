@@ -77,7 +77,7 @@ npx http-server -p 8080 -c-1     # または: python3 -m http.server 8080
 - 推奨：デスクトップ版 Chrome / Edge / Firefox（WebGL2）、キーボード。
 - 画質はタイトルの「設定」から 高/中/低 を選べます（URL に `?quality=low` を付けても可）。
 - 初回クリックでサウンドが有効になります（ブラウザの自動再生制限のため）。
-- GitHub Pages などの静的ホスティングにそのまま置いても動作します。
+- GitHub Pages などの静的ホスティングにそのまま置いても動作します（公開版は `main` ブランチの `/`（root）から配信）。
 
 ## 使用した AI サービスとモデル
 
